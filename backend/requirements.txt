@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+pydantic>=2
+pydantic-settings
+sqlalchemy
+alembic
+psycopg[binary]
+redis
+httpx
+python-json-logger
+prometheus-client
