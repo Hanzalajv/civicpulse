@@ -1,8 +1,9 @@
 import { useState } from "react";
 import Dashboard from "./pages/Dashboard";
+import Stats from "./pages/Stats";
 import Submit from "./pages/Submit";
 
-type Tab = "submit" | "dashboard";
+type Tab = "submit" | "dashboard" | "stats";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("submit");
@@ -23,6 +24,7 @@ export default function App() {
         <span style={{ color: "#888", fontSize: "0.9rem" }}>Municipal complaint intake</span>
         <nav style={{ marginLeft: "auto", display: "flex", gap: "0.5rem" }}>
           <button
+            type="button"
             onClick={() => setTab("submit")}
             disabled={tab === "submit"}
             style={{ fontWeight: tab === "submit" ? 700 : 400 }}
@@ -30,17 +32,27 @@ export default function App() {
             Submit
           </button>
           <button
+            type="button"
             onClick={() => setTab("dashboard")}
             disabled={tab === "dashboard"}
             style={{ fontWeight: tab === "dashboard" ? 700 : 400 }}
           >
             Dashboard
           </button>
+          <button
+            type="button"
+            onClick={() => setTab("stats")}
+            disabled={tab === "stats"}
+            style={{ fontWeight: tab === "stats" ? 700 : 400 }}
+          >
+            Stats
+          </button>
         </nav>
       </header>
       <main>
         {tab === "submit" && <Submit />}
         {tab === "dashboard" && <Dashboard />}
+        {tab === "stats" && <Stats />}
       </main>
     </div>
   );
