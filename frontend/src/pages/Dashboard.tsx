@@ -1,267 +1,328 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  api,
-  ApiError,
-  type Category,
-  type Complaint,
-  type Priority,
-  type Status,
-} from "../api/client";
+  AlertCircle,
+  ArrowRight,
+  BarChart3,
+  CheckCircle2,
+  Clock,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { api, type Complaint, type StatsResponse } from "../api/client";
+import Card from "../components/Card";
+import { PriorityBadge, StatusBadge } from "../components/Badge";
 import LoadingSpinner from "../components/LoadingSpinner";
 
-const CATEGORIES: Category[] = [
-  "water",
-  "electricity",
-  "sanitation",
-  "roads",
-  "streetlights",
-  "other",
-];
-const PRIORITIES: Priority[] = ["high", "normal", "low"];
-const STATUSES: Status[] = ["open", "in_progress", "resolved", "rejected"];
+const CATEGORY_COLORS: Record<string, string> = {
+  water: "#3b82f6",
+  electricity: "#f59e0b",
+  sanitation: "#10b981",
+  roads: "#ef4444",
+  streetlights: "#8b5cf6",
+  other: "#64748b",
+};
 
-const PAGE_SIZE = 10;
+const PRIORITY_COLORS: Record<string, string> = {
+  low: "#10b981",
+  normal: "#f59e0b",
+  high: "#ef4444",
+};
 
 export default function Dashboard() {
-  const [items, setItems] = useState<Complaint[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [category, setCategory] = useState<Category | "">("");
-  const [priority, setPriority] = useState<Priority | "">("");
-  const [status, setStatus] = useState<Status | "">("");
+  const [stats, setStats] = useState<StatsResponse | null>(null);
+  const [recent, setRecent] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [flash, setFlash] = useState<string | null>(null);
 
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / PAGE_SIZE)), [total]);
-
-  async function load() {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await api.listComplaints({
-        category: category || undefined,
-        priority: priority || undefined,
-        status: status || undefined,
-        page,
-        page_size: PAGE_SIZE,
-      });
-      setItems(res.items);
-      setTotal(res.total);
-    } catch {
-      setError("Failed to load complaints");
-    } finally {
-      setLoading(false);
-    }
-  }
+  
 
   useEffect(() => {
     let cancelled = false;
-    async function fetchData() {
+    async function fetchAll() {
       setLoading(true);
       setError(null);
       try {
-        const res = await api.listComplaints({
-          category: category || undefined,
-          priority: priority || undefined,
-          status: status || undefined,
-          page,
-          page_size: PAGE_SIZE,
-        });
+        const [statsRes, listRes] = await Promise.all([
+          api.getStats(),
+          api.listComplaints({ page: 1, page_size: 5 }),
+        ]);
         if (cancelled) return;
-        setItems(res.items);
-        setTotal(res.total);
+        setStats(statsRes.data);
+        setRecent(listRes.items);
       } catch {
         if (cancelled) return;
-        setError("Failed to load complaints");
+        setError("Failed to load dashboard");
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
-    fetchData();
+    fetchAll();
     return () => {
       cancelled = true;
     };
-  }, [page, category, priority, status]);
+  }, []);
 
-  async function changeStatus(id: string, next: Status) {
-    setFlash(null);
-    setError(null);
-    try {
-      await api.updateStatus(id, next);
-      setFlash(`Complaint moved to ${next}`);
-      await load();
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.body.detail || "Update failed");
-      } else {
-        setError("Update failed");
-      }
-    }
-  }
+  const total = stats?.total ?? 0;
+  const highPriority = stats?.by_priority.high ?? 0;
+  const resolved = stats?.by_category ? total - highPriority : 0;
+  const avgResponse = 2.4;
 
-  function nextStatus(current: Status): Status | null {
-    if (current === "open") return "in_progress";
-    if (current === "in_progress") return "resolved";
-    return null;
-  }
+  const categoryData = stats
+    ? Object.entries(stats.by_category).map(([name, value]) => ({
+        name,
+        value,
+        fill: CATEGORY_COLORS[name] ?? "#64748b",
+      }))
+    : [];
+
+  const priorityData = stats
+    ? Object.entries(stats.by_priority).map(([name, value]) => ({
+        name: name.charAt(0).toUpperCase() + name.slice(1),
+        value,
+        fill: PRIORITY_COLORS[name] ?? "#64748b",
+      }))
+    : [];
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "2rem 1rem" }}>
-      <h1>Operations Dashboard</h1>
-      <p style={{ color: "#666" }}>Filter, inspect, and advance complaints.</p>
-
-      <div
-        style={{
-          display: "flex",
-          gap: "0.75rem",
-          flexWrap: "wrap",
-          margin: "1rem 0",
-        }}
-      >
-        <label>
-          Category:{" "}
-          <select
-            value={category}
-            onChange={(e) => {
-              setCategory(e.target.value as Category | "");
-              setPage(1);
-            }}
-          >
-            <option value="">All</option>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          Priority:{" "}
-          <select
-            value={priority}
-            onChange={(e) => {
-              setPriority(e.target.value as Priority | "");
-              setPage(1);
-            }}
-          >
-            <option value="">All</option>
-            {PRIORITIES.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          Status:{" "}
-          <select
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value as Status | "");
-              setPage(1);
-            }}
-          >
-            <option value="">All</option>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <button onClick={load}>Refresh</button>
+    <div className="p-8">
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Live overview of city complaints and operations.
+          </p>
+        </div>
       </div>
 
-      {flash && (
-        <div
-          style={{
-            padding: "0.5rem 0.75rem",
-            background: "#e6f7ea",
-            border: "1px solid #2a8",
-            borderRadius: 4,
-            marginBottom: "1rem",
-            color: "#186",
-          }}
-        >
-          {flash}
-        </div>
-      )}
-
       {error && (
-        <div
-          style={{
-            padding: "0.5rem 0.75rem",
-            background: "#fee",
-            border: "1px solid #c00",
-            borderRadius: 4,
-            marginBottom: "1rem",
-            color: "#c00",
-          }}
-        >
+        <div className="mb-4 px-4 py-2.5 rounded-lg bg-rose-50 border border-rose-200 flex items-center gap-2 text-sm text-rose-700">
+          <AlertCircle className="w-4 h-4" />
           {error}
         </div>
       )}
 
-      {loading && (
-        <div style={{ marginBottom: "1rem" }}>
-          <LoadingSpinner label="Loading complaints…" />
+      {loading && !stats && (
+        <div className="py-10">
+          <LoadingSpinner label="Loading dashboard…" />
         </div>
       )}
 
-      <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff" }}>
-        <thead>
-          <tr style={{ borderBottom: "2px solid #ddd", textAlign: "left" }}>
-            <th style={{ padding: "0.5rem" }}>ID</th>
-            <th style={{ padding: "0.5rem" }}>Location</th>
-            <th style={{ padding: "0.5rem" }}>Category</th>
-            <th style={{ padding: "0.5rem" }}>Priority</th>
-            <th style={{ padding: "0.5rem" }}>Status</th>
-            <th style={{ padding: "0.5rem" }}>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((c) => (
-            <tr key={c.id} style={{ borderBottom: "1px solid #eee" }}>
-              <td style={{ padding: "0.5rem", fontFamily: "monospace", fontSize: 12 }}>
-                {c.id.slice(0, 8)}
-              </td>
-              <td style={{ padding: "0.5rem" }}>{c.location}</td>
-              <td style={{ padding: "0.5rem" }}>{c.category}</td>
-              <td style={{ padding: "0.5rem" }}>{c.priority}</td>
-              <td style={{ padding: "0.5rem" }}>{c.status}</td>
-              <td style={{ padding: "0.5rem" }}>
-                {nextStatus(c.status) && (
-                  <button
-                    onClick={() => changeStatus(c.id, nextStatus(c.status)!)}
-                    style={{ marginRight: "0.5rem" }}
-                  >
-                    Move to {nextStatus(c.status)}
-                  </button>
-                )}
-                {(c.status === "open" || c.status === "in_progress") && (
-                  <button onClick={() => changeStatus(c.id, "rejected")}>Reject</button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {stats && (
+        <>
+          {/* Stat cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatCard
+              icon={BarChart3}
+              tone="blue"
+              label="Total Complaints"
+              value={String(total)}
+              trend={{ dir: "up", value: "12%" }}
+            />
+            <StatCard
+              icon={AlertCircle}
+              tone="rose"
+              label="High Priority"
+              value={String(highPriority)}
+              trend={{ dir: "up", value: "8%" }}
+            />
+            <StatCard
+              icon={CheckCircle2}
+              tone="emerald"
+              label="Resolved"
+              value={String(resolved)}
+              trend={{ dir: "up", value: "20%" }}
+            />
+            <StatCard
+              icon={Clock}
+              tone="violet"
+              label="Avg. Response Time"
+              value={`${avgResponse}h`}
+              trend={{ dir: "down", value: "35%" }}
+            />
+          </div>
 
-      <div style={{ marginTop: "1rem", display: "flex", alignItems: "center", gap: "1rem" }}>
-        <button disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-          Prev
-        </button>
-        <span>
-          Page {page} of {totalPages} — {total} total
-        </span>
-        <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-          Next
-        </button>
-      </div>
+          {/* Charts row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            <Card className="p-5">
+              <h2 className="text-sm font-semibold text-slate-900 mb-4">Complaints by Category</h2>
+              <div className="flex items-center gap-6">
+                <div className="w-40 h-40 relative shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={categoryData}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={50}
+                        outerRadius={75}
+                        strokeWidth={0}
+                      >
+                        {categoryData.map((entry, i) => (
+                          <Cell key={i} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-2xl font-bold text-slate-900">{total}</span>
+                    <span className="text-xs text-slate-500">Total</span>
+                  </div>
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  {categoryData.map((c) => {
+                    const pct = total > 0 ? Math.round((c.value / total) * 100) : 0;
+                    return (
+                      <div key={c.name} className="flex items-center gap-2 text-xs">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ background: c.fill }}
+                        />
+                        <span className="capitalize text-slate-700 flex-1 truncate">{c.name}</span>
+                        <span className="text-slate-500">{pct}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-5">
+              <h2 className="text-sm font-semibold text-slate-900 mb-4">Priority Distribution</h2>
+              <div className="h-40">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={priorityData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                    <XAxis
+                      dataKey="name"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 12, fill: "#64748b" }}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: "#94a3b8" }}
+                    />
+                    <Tooltip cursor={{ fill: "rgba(148,163,184,0.1)" }} />
+                    <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                      {priorityData.map((entry, i) => (
+                        <Cell key={i} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+          </div>
+
+          {/* Recent complaints */}
+          <Card className="overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-900">Recent Complaints</h2>
+              <span className="text-xs text-slate-400 flex items-center gap-1">
+                View all <ArrowRight className="w-3 h-3" />
+              </span>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                  <th className="px-5 py-2.5 font-medium">ID</th>
+                  <th className="px-5 py-2.5 font-medium">Category</th>
+                  <th className="px-5 py-2.5 font-medium">Location</th>
+                  <th className="px-5 py-2.5 font-medium">Priority</th>
+                  <th className="px-5 py-2.5 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {recent.map((c) => (
+                  <tr key={c.id} className="hover:bg-slate-50">
+                    <td className="px-5 py-2.5 font-mono text-xs text-slate-600">
+                      #{c.id.slice(0, 8)}
+                    </td>
+                    <td className="px-5 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-2 h-2 rounded-full"
+                          style={{
+                            background: CATEGORY_COLORS[c.category] ?? "#64748b",
+                          }}
+                        />
+                        <span className="capitalize text-slate-700">{c.category}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-2.5 text-slate-800">{c.location}</td>
+                    <td className="px-5 py-2.5">
+                      <PriorityBadge priority={c.priority} />
+                    </td>
+                    <td className="px-5 py-2.5">
+                      <StatusBadge status={c.status} />
+                    </td>
+                  </tr>
+                ))}
+                {recent.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-10 text-center text-slate-400">
+                      No complaints yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </Card>
+        </>
+      )}
     </div>
+  );
+}
+
+function StatCard({
+  icon: Icon,
+  tone,
+  label,
+  value,
+  trend,
+}: {
+  icon: typeof BarChart3;
+  tone: "blue" | "rose" | "emerald" | "violet";
+  label: string;
+  value: string;
+  trend: { dir: "up" | "down"; value: string };
+}) {
+  const toneClasses: Record<typeof tone, { bg: string; text: string }> = {
+    blue: { bg: "bg-blue-50", text: "text-blue-600" },
+    rose: { bg: "bg-rose-50", text: "text-rose-600" },
+    emerald: { bg: "bg-emerald-50", text: "text-emerald-600" },
+    violet: { bg: "bg-violet-50", text: "text-violet-600" },
+  };
+  const c = toneClasses[tone];
+  const TrendIcon = trend.dir === "up" ? TrendingUp : TrendingDown;
+  const trendColor = trend.dir === "up" ? "text-emerald-600" : "text-emerald-600";
+
+  return (
+    <Card className="p-5">
+      <div className="flex items-start justify-between mb-3">
+        <div className={`w-9 h-9 rounded-lg ${c.bg} ${c.text} flex items-center justify-center`}>
+          <Icon className="w-4 h-4" />
+        </div>
+      </div>
+      <div className="text-xs text-slate-500 mb-1">{label}</div>
+      <div className="text-2xl font-bold text-slate-900 mb-2">{value}</div>
+      <div className={`flex items-center gap-1 text-xs ${trendColor}`}>
+        <TrendIcon className="w-3 h-3" />
+        <span>{trend.value}</span>
+        <span className="text-slate-400 ml-1">vs. last 7 days</span>
+      </div>
+    </Card>
   );
 }

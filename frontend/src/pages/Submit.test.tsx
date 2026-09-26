@@ -35,15 +35,15 @@ describe("Submit view", () => {
 
   it("renders the form", () => {
     render(<Submit />);
-    expect(screen.getByText("Report a Complaint")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Burst water main/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Street 12, Block C/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /submit complaint/i })).toBeInTheDocument();
+    expect(screen.getByText(/Submit a Complaint/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/provide as much detail/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Street name, landmark/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Submit Complaint/i })).toBeInTheDocument();
   });
 
   it("shows local validation errors when fields are empty", () => {
     render(<Submit />);
-    fireEvent.click(screen.getByRole("button", { name: /submit complaint/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Submit Complaint/i }));
     expect(screen.getByText(/at least 10 characters/i)).toBeInTheDocument();
     expect(screen.getByText(/at least 3 characters/i)).toBeInTheDocument();
     expect(api.createComplaint).not.toHaveBeenCalled();
@@ -56,13 +56,13 @@ describe("Submit view", () => {
     );
 
     render(<Submit />);
-    fireEvent.change(screen.getByPlaceholderText(/Burst water main/i), {
+    fireEvent.change(screen.getByPlaceholderText(/provide as much detail/i), {
       target: { value: "Burst water pipe on Street 99 flooding the road" },
     });
-    fireEvent.change(screen.getByPlaceholderText(/Street 12, Block C/i), {
+    fireEvent.change(screen.getByPlaceholderText(/Street name, landmark/i), {
       target: { value: "Street 99" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /submit complaint/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Submit Complaint/i }));
 
     expect(screen.getByText(/Analyzing your complaint/i)).toBeInTheDocument();
 
@@ -76,13 +76,13 @@ describe("Submit view", () => {
     (api.createComplaint as ReturnType<typeof vi.fn>).mockResolvedValue(SAMPLE);
 
     render(<Submit />);
-    fireEvent.change(screen.getByPlaceholderText(/Burst water main/i), {
+    fireEvent.change(screen.getByPlaceholderText(/provide as much detail/i), {
       target: { value: "Burst water pipe on Street 99 flooding the road" },
     });
-    fireEvent.change(screen.getByPlaceholderText(/Street 12, Block C/i), {
+    fireEvent.change(screen.getByPlaceholderText(/Street name, landmark/i), {
       target: { value: "Street 99" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /submit complaint/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Submit Complaint/i }));
 
     await waitFor(() => expect(screen.getByText(/Complaint received/i)).toBeInTheDocument());
     expect(screen.getByText("water")).toBeInTheDocument();
@@ -97,13 +97,13 @@ describe("Submit view", () => {
     );
 
     render(<Submit />);
-    fireEvent.change(screen.getByPlaceholderText(/Burst water main/i), {
+    fireEvent.change(screen.getByPlaceholderText(/provide as much detail/i), {
       target: { value: "Burst water pipe on Street 99 flooding the road" },
     });
-    fireEvent.change(screen.getByPlaceholderText(/Street 12, Block C/i), {
+    fireEvent.change(screen.getByPlaceholderText(/Street name, landmark/i), {
       target: { value: "Street 99" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /submit complaint/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Submit Complaint/i }));
 
     await waitFor(() => expect(screen.getByText("Rate limit exceeded")).toBeInTheDocument());
   });

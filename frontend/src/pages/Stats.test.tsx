@@ -43,9 +43,10 @@ describe("Stats view", () => {
 
     render(<Stats />);
 
-    await waitFor(() => expect(screen.getByText("30")).toBeInTheDocument());
+    // "30" appears twice (total card + donut center) — use getAllByText
+    await waitFor(() => expect(screen.getAllByText("30").length).toBeGreaterThan(0));
     expect(screen.getByText("water")).toBeInTheDocument();
-    expect(screen.getByText("high")).toBeInTheDocument();
+    expect(screen.getByText("High")).toBeInTheDocument();
     expect(screen.getByText("16")).toBeInTheDocument();
   });
 
@@ -90,8 +91,8 @@ describe("Stats view", () => {
 
     render(<Stats />);
 
-    await waitFor(() => expect(screen.getByText("By category")).toBeInTheDocument());
-    expect(screen.getByText("By priority")).toBeInTheDocument();
-    expect(screen.getByText("Total complaints")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("By Category")).toBeInTheDocument());
+    expect(screen.getByText("By Priority")).toBeInTheDocument();
+    expect(screen.getByText("Total Complaints")).toBeInTheDocument();
   });
 });

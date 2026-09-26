@@ -1,57 +1,20 @@
 import { useState } from "react";
-import Dashboard from "./pages/Dashboard";
+import Sidebar, { type Tab } from "./components/Sidebar";
+import Complaints from "./pages/Complaints";
 import Stats from "./pages/Stats";
 import Submit from "./pages/Submit";
-
-type Tab = "submit" | "dashboard" | "stats";
+import Dashboard from "./pages/Dashboard";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("submit");
 
   return (
-    <div style={{ fontFamily: "sans-serif", minHeight: "100vh" }}>
-      <header
-        style={{
-          padding: "1rem 2rem",
-          borderBottom: "1px solid #ddd",
-          background: "#fff",
-          display: "flex",
-          alignItems: "center",
-          gap: "1.5rem",
-        }}
-      >
-        <h1 style={{ margin: 0, fontSize: "1.25rem" }}>CivicPulse</h1>
-        <span style={{ color: "#888", fontSize: "0.9rem" }}>Municipal complaint intake</span>
-        <nav style={{ marginLeft: "auto", display: "flex", gap: "0.5rem" }}>
-          <button
-            type="button"
-            onClick={() => setTab("submit")}
-            disabled={tab === "submit"}
-            style={{ fontWeight: tab === "submit" ? 700 : 400 }}
-          >
-            Submit
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("dashboard")}
-            disabled={tab === "dashboard"}
-            style={{ fontWeight: tab === "dashboard" ? 700 : 400 }}
-          >
-            Dashboard
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("stats")}
-            disabled={tab === "stats"}
-            style={{ fontWeight: tab === "stats" ? 700 : 400 }}
-          >
-            Stats
-          </button>
-        </nav>
-      </header>
-      <main>
+    <div className="flex h-screen bg-slate-50">
+      <Sidebar tab={tab} onTabChange={setTab} />
+      <main className="flex-1 overflow-y-auto">
         {tab === "submit" && <Submit />}
         {tab === "dashboard" && <Dashboard />}
+        {tab === "complaints" && <Complaints />}
         {tab === "stats" && <Stats />}
       </main>
     </div>
