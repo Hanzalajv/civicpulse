@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import Dashboard from "./Dashboard";
+import Complaints from "./Complaints";
 import { api, ApiError, type Complaint } from "../api/client";
 
 vi.mock("../api/client", async () => {
@@ -32,7 +32,7 @@ function makeComplaint(overrides: Partial<Complaint> = {}): Complaint {
   };
 }
 
-describe("Dashboard view", () => {
+describe("Complaints view", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -52,7 +52,7 @@ describe("Dashboard view", () => {
       page_size: 10,
     });
 
-    render(<Dashboard />);
+    render(<Complaints />);
 
     await waitFor(() => expect(screen.getByText("Street 12")).toBeInTheDocument());
     expect(screen.getByText("GT Road")).toBeInTheDocument();
@@ -62,7 +62,7 @@ describe("Dashboard view", () => {
   it("shows error banner when list fails", async () => {
     (api.listComplaints as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("network"));
 
-    render(<Dashboard />);
+    render(<Complaints />);
 
     await waitFor(() => expect(screen.getByText(/Failed to load complaints/i)).toBeInTheDocument());
   });
@@ -75,12 +75,11 @@ describe("Dashboard view", () => {
       page_size: 10,
     });
 
-    render(<Dashboard />);
+    render(<Complaints />);
 
     await waitFor(() => expect(api.listComplaints).toHaveBeenCalled());
 
-    // Change category to water
-    const categorySelect = screen.getByLabelText(/Category/i);
+    const categorySelect = screen.getAllByRole("combobox")[0];
     fireEvent.change(categorySelect, { target: { value: "water" } });
 
     await waitFor(() =>
@@ -89,8 +88,7 @@ describe("Dashboard view", () => {
       )
     );
 
-    // Change priority to high
-    const prioritySelect = screen.getByLabelText(/Priority/i);
+    const prioritySelect = screen.getAllByRole("combobox")[1];
     fireEvent.change(prioritySelect, { target: { value: "high" } });
 
     await waitFor(() =>
@@ -111,15 +109,15 @@ describe("Dashboard view", () => {
       makeComplaint({ id: "abc", status: "in_progress" })
     );
 
-    render(<Dashboard />);
+    render(<Complaints />);
 
     await waitFor(() => screen.getByText("Street 12"));
 
-    fireEvent.click(screen.getByRole("button", { name: /Move to in_progress/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Mark as in progress/i }));
 
     await waitFor(() => expect(api.updateStatus).toHaveBeenCalledWith("abc", "in_progress"));
     await waitFor(() =>
-      expect(screen.getByText(/Complaint moved to in_progress/)).toBeInTheDocument()
+      expect(screen.getByText(/Complaint moved to in progress/)).toBeInTheDocument()
     );
   });
 
@@ -139,11 +137,11 @@ describe("Dashboard view", () => {
       )
     );
 
-    render(<Dashboard />);
+    render(<Complaints />);
 
     await waitFor(() => screen.getByText("Street 12"));
 
-    fireEvent.click(screen.getByRole("button", { name: /Move to resolved/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Mark as resolved/i }));
 
     await waitFor(() =>
       expect(screen.getByText("Invalid status transition: resolved->resolved")).toBeInTheDocument()
