@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+﻿import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { api, ApiError, type Complaint } from "./client";
 
 const SAMPLE_COMPLAINT: Complaint = {
@@ -30,6 +30,20 @@ function mockFetch(
   });
 }
 
+function mockFetchRawText(
+  rawText: string,
+  init: { status?: number; headers?: Record<string, string> } = {}
+) {
+  const status = init.status ?? 200;
+  const headers = new Headers(init.headers ?? {});
+  return vi.fn().mockResolvedValue({
+    ok: status >= 200 && status < 300,
+    status,
+    headers,
+    text: async () => rawText,
+  });
+}
+
 describe("api client", () => {
   const originalFetch = globalThis.fetch;
 
@@ -40,6 +54,8 @@ describe("api client", () => {
   afterEach(() => {
     globalThis.fetch = originalFetch;
   });
+
+  // ---------- Happy paths ----------
 
   it("createComplaint posts and returns the created complaint", async () => {
     const fetchMock = mockFetch(SAMPLE_COMPLAINT, { status: 201 });
@@ -127,6 +143,8 @@ describe("api client", () => {
     expect(cache).toBe("HIT");
   });
 
+  // ---------- HTTP error cases ----------
+
   it("throws ApiError with parsed detail on 409", async () => {
     const fetchMock = mockFetch(
       { detail: "Invalid status transition: in_progress->open" },
@@ -157,5 +175,79 @@ describe("api client", () => {
       expect(apiErr.status).toBe(400);
       expect(apiErr.body.errors?.[0].field).toBe("text");
     }
+  });
+
+  it("throws ApiError with response object preserved on 500", async () => {
+    const fetchMock = mockFetch({ detail: "Internal server error" }, { status: 500 });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    try {
+      await api.getComplaint("abc-123");
+      throw new Error("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      const apiErr = err as ApiError;
+      expect(apiErr.status).toBe(500);
+      expect(apiErr.response).not.toBeNull();
+      expect(apiErr.response?.status).toBe(500);
+    }
+  });
+
+  it("throws ApiError with status 0 on network failure", async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+
+    try {
+      await api.getComplaint("abc-123");
+      throw new Error("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      const apiErr = err as ApiError;
+      expect(apiErr.status).toBe(0);
+      expect(apiErr.body.detail).toBe("Network error");
+      expect(apiErr.response).toBeNull();
+    }
+  });
+
+  it("throws ApiError with status 0 on timeout", async () => {
+    globalThis.fetch = vi.fn().mockImplementation(() => {
+      const err = new DOMException("Aborted", "AbortError");
+      return Promise.reject(err);
+    });
+
+    try {
+      await api.getComplaint("abc-123");
+      throw new Error("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      const apiErr = err as ApiError;
+      expect(apiErr.status).toBe(0);
+      expect(apiErr.body.detail).toBe("Request timed out");
+      expect(apiErr.response).toBeNull();
+    }
+  });
+
+  // ---------- Malformed response ----------
+
+  it("handles non-JSON response body gracefully", async () => {
+    const fetchMock = mockFetchRawText("<html>Server Error</html>", { status: 502 });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    try {
+      await api.getComplaint("abc-123");
+      throw new Error("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      const apiErr = err as ApiError;
+      expect(apiErr.status).toBe(502);
+      expect(apiErr.body.detail).toBe("<html>Server Error</html>");
+    }
+  });
+
+  it("handles empty response body gracefully", async () => {
+    const fetchMock = mockFetchRawText("", { status: 200 });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await api.getComplaint("abc-123");
+    expect(result).toBeNull();
   });
 });

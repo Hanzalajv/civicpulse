@@ -1,4 +1,4 @@
-const API_BASE = "/api";
+﻿const API_BASE = "/api";
 
 export type Category = "water" | "electricity" | "sanitation" | "roads" | "streetlights" | "other";
 
@@ -52,12 +52,14 @@ export interface ApiErrorBody {
 export class ApiError extends Error {
   status: number;
   body: ApiErrorBody;
+  response: Response | null;
 
-  constructor(status: number, body: ApiErrorBody, message: string) {
+  constructor(status: number, body: ApiErrorBody, message: string, response: Response | null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.body = body;
+    this.response = response;
   }
 }
 
@@ -66,14 +68,30 @@ interface RequestResult<T> {
   headers: Headers;
 }
 
+const REQUEST_TIMEOUT_MS = 10_000;
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<RequestResult<T>> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new ApiError(0, { detail: "Request timed out" }, "Request timed out", null);
+    }
+    throw new ApiError(0, { detail: "Network error" }, "Network error", null);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const text = await res.text();
   let body: unknown = null;
@@ -88,7 +106,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<Requ
   if (!res.ok) {
     const errBody = (body as ApiErrorBody) || {};
     const message = errBody.detail || "Request failed";
-    throw new ApiError(res.status, errBody, message);
+    throw new ApiError(res.status, errBody, message, res);
   }
 
   return { data: body as T, headers: res.headers };
