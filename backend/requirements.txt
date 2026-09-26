@@ -9,3 +9,6 @@ redis
 httpx
 python-json-logger
 prometheus-client
+pytest
+pytest-cov
+pytest-asyncio
