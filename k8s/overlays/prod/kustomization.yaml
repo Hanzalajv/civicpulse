@@ -1,0 +1,4 @@
+images:
+  - name: backend
+    newName: ghcr.io/org/civicpulse-backend
+    newTag: ${IMAGE_TAG}
