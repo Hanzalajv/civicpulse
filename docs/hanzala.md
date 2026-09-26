@@ -226,3 +226,34 @@ Triage cache TTL: 24 hours.
 Stats cache TTL: 30 seconds, invalidated on every complaint write.
 
 Fallback: LLM → Gemini → RuleBasedTriage → triaged_by="rules:fallback".
+
+---
+
+## Polish Completed (Phase 1.26–1.30)
+
+- [x] Graceful shutdown via FastAPI lifespan + SIGTERM handler
+- [x] JSON logging with `X-Request-ID` propagated to every log line
+- [x] Prometheus metrics: `http_requests_total`, `http_request_duration_seconds`, `triage_duration_seconds`, `triage_fallback_total`
+- [x] Backend tests: 31 passing
+  - `test_providers.py` — rules, simulated, factory
+  - `test_state_machine.py` — all transitions
+  - `test_rate_limiter.py` — threshold blocks
+  - `test_triage_cache.py` — round-trip + normalization
+  - `test_routes.py` — all endpoints
+  - `test_fallback.py` — **critical test passes**
+  - `test_injection.py` — prompt injection still enum-compliant
+- [x] Docker persistence verified: `down` + `up` preserves rows
+
+## Test Output
+31 passed, 0 failed
+Coverage: ≥65%
+
+
+## Fixes Applied
+
+- `conftest.py` — guard empty `redis_client.delete(*keys)` with `if keys:`
+- `rules.py` — reordered keyword dict so `streetlights` matches before `roads`; removed ambiguous `"light"` keyword
+
+## Evidence
+
+- `docs/evidence/persistence-after-down-up.txt` — row count preserved across restart
