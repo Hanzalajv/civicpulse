@@ -5,15 +5,41 @@ from app.models.schemas import TriageResult
 class RuleBasedTriage:
     name = "rules"
 
+    # Order matters: more specific categories must come before broader ones.
+    # "streetlight" contains "street", so streetlights MUST be checked before roads.
     KEYWORDS = {
         Category.water: ["water", "leak", "pipe", "flood", "main", "supply", "tanker"],
-        Category.electricity: ["electric", "power", "wire", "transformer", "outage", "load shedding"],
-        Category.sanitation: ["garbage", "sewage", "drain", "waste", "toilet", "dirty", "smell"],
-        Category.roads: ["road", "pothole", "street", "pavement", "cave", "footpath", "speed breaker"],
-        Category.streetlights: ["streetlight", "lamp", "dark", "pole", "light"],
+        Category.electricity: [
+            "electric",
+            "power",
+            "wire",
+            "transformer",
+            "outage",
+            "load shedding",
+        ],
+        Category.sanitation: [
+            "garbage",
+            "sewage",
+            "drain",
+            "waste",
+            "toilet",
+            "dirty",
+            "smell",
+        ],
+        Category.streetlights: ["streetlight", "street light", "lamp", "dark", "pole"],
+        Category.roads: ["road", "pothole", "street", "pavement", "cave", "footpath"],
     }
 
-    URGENT_KEYWORDS = ["burst", "flood", "emergency", "danger", "urgent", "accident", "sparking", "overflow"]
+    URGENT_KEYWORDS = [
+        "burst",
+        "flood",
+        "emergency",
+        "danger",
+        "urgent",
+        "accident",
+        "sparking",
+        "overflow",
+    ]
 
     def triage(self, text: str, location: str) -> TriageResult:
         text_lower = text.lower()

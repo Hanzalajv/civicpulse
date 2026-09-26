@@ -2,6 +2,7 @@ import time
 
 from sqlalchemy.orm import Session
 
+from app.metrics import TRIAGE_FALLBACK_COUNT, TRIAGE_LATENCY
 from app.models.enums import Status
 from app.models.orm import Complaint
 from app.providers.triage.factory import get_provider
@@ -36,7 +37,9 @@ def create_complaint(db: Session, data: dict) -> Complaint:
         except Exception:
             result = RuleBasedTriage().triage(text, location)
             triaged_by = "rules:fallback"
+            TRIAGE_FALLBACK_COUNT.inc()
         latency_ms = int((time.perf_counter() - started) * 1000)
+        TRIAGE_LATENCY.labels(provider=triaged_by).observe(latency_ms / 1000.0)
 
         triage = {
             "category": result.category.value,
