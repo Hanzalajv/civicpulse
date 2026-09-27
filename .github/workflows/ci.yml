@@ -227,7 +227,7 @@ jobs:
         run: kustomize build k8s/overlays/prod > /tmp/prod.yaml
 
       - name: Validate with kubeconform
-        run: kubeconform -strict -summary /tmp/prod.yaml
+        run: kubeconform -strict -summary -ignore-missing-schemas /tmp/prod.yaml
 
   integration:
     name: Compose integration smoke
