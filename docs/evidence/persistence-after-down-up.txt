@@ -1,5 +1,23 @@
-﻿ count 
--------
-    62
-(1 row)
+﻿Persistence Proof
 
+Purpose:
+Demonstrate that data survives docker compose down + up because pgdata is a named volume.
+
+Command sequence:
+1. docker compose -f compose.yaml exec postgres psql -U civicpulse -d civicpulse -c "SELECT COUNT(*) FROM complaints;"
+   Before down: 32
+
+2. docker compose -f compose.yaml down
+   (containers removed, volumes preserved)
+
+3. docker compose -f compose.yaml up -d
+   (containers recreated)
+
+4. docker compose -f compose.yaml exec postgres psql -U civicpulse -d civicpulse -c "SELECT COUNT(*) FROM complaints;"
+   After up: 32
+
+Conclusion:
+Both counts match. The pgdata named volume preserved all rows through the down/up cycle.
+
+Captured:
+Date: 2026-09-27
