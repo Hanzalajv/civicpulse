@@ -187,7 +187,56 @@ def test_fallback_on_provider_failure(db_session):
     assert complaint.triaged_by == "rules:fallback"
 A user must never see a 500 because a third party was rate-limited.
 
+## Q5: 
 
+Q5 — HPA lag
+Measured lag
+In our k3d cluster, HPA took roughly 30–45 seconds to scale from 1 to 3 replicas after CPU exceeded 60%. Captured in docs/evidence/hpa-w.txt:
+
+text
+cpu: 12%/60%    1   3   1   ← baseline
+cpu: 290%/60%   1   3   1   ← load arrives, still 1
+cpu: 5%/60%     1   3   3   ← scaled out
+The gap between line 2 and line 3 is the lag.
+
+Where the time went
+Metrics scrape interval — metrics-server scrapes kubelet every 15s. Largest contributor.
+
+HPA controller sync — runs every 15s by default.
+
+Pod startup — schedule, pull, start, readiness probe = ~5–8s.
+
+Service routing — a few seconds before new pods receive traffic.
+
+15 + 15 + 8 + ~5 = roughly 35–45 seconds.
+
+What would reduce it
+Lever	Saves
+Lower --metric-resolution to 5s	~10s
+Lower --horizontal-pod-autoscaler-sync-period to 5s	~10s
+Pre-pull images on nodes	~3s
+scaleUp.stabilizationWindowSeconds: 0 (we did this)	Reacts immediately
+Lower CPU target to 50%	Triggers earlier, more idle replicas
+Why it matters
+Autoscaling is not a substitute for capacity planning. If traffic doubles in 10 seconds, the system has 20–35 seconds of degraded performance before capacity arrives. For municipal complaints, this is fine. For payments or live events, it is not. That is why our prod overlay runs minReplicas: 2 — baseline capacity always exists.
+
+What we configured
+k8s/base/hpa.yaml:
+
+yaml
+behavior:
+  scaleUp:
+    stabilizationWindowSeconds: 0    # react immediately — users waiting
+  scaleDown:
+    stabilizationWindowSeconds: 300  # scale down slowly — flapping is expensive
+Asymmetric on purpose. Fast up, slow down.
+
+Evidence
+docs/evidence/hpa-w.txt — full cycle
+
+k8s/base/hpa.yaml — configuration
+
+k8s/overlays/prod/kustomization.yaml — min 2 / max 10
 
 ## Q6 — Why VPA is in Off mode
 
@@ -206,20 +255,118 @@ VPA runs in `updateMode: "Off"` alongside the HPA on the backend Deployment.
 
 **Evidence:** `docs/evidence/vpa-recommendations.txt`, `docs/evidence/vpa-yaml.txt`
 
-Q7 — internal:true and the LLM caller
-(Filled by partner)
+## Q7 — internal: true and the LLM caller
 
-Q8 — The failure
-(Filled by partner)
+**The constraint:** Docker Compose's `compose.yaml` puts the backend on two networks:
 
-text
+- `edge` — routes to the frontend
+- `internal: true` — routes to Postgres and Redis, with **no route to the outside world**
 
----
+Any container on `internal` alone cannot reach the internet. Postgres and Redis stay there. They never talk outbound. Good.
 
-## What to Do
+But the backend needs to call Groq and Gemini over HTTPS. Those are external APIs. If the backend were only on `internal`, the LLM call would fail.
 
-### 1. File Creation
+**The resolution:** the backend joins **both** networks. `compose.yaml` sets:
 
-```powershell
-New-Item -ItemType File -Force -Path docs\ENGINEERING-NOTES.md
-code docs\ENGINEERING-NOTES.md
+```yaml
+backend:
+  networks:
+    - internal
+    - edge
+internal lets it talk to Postgres and Redis
+
+edge gives it outbound internet access
+
+The frontend stays on edge only
+
+Postgres and Redis stay on internal only
+
+The backend is the only service that bridges the two networks. It has the LLM keys, the DB credentials, and the cache URL. No other container needs all three.
+
+Consequence we accept: the backend container has outbound internet access. A compromised backend could exfiltrate data. We mitigate this by:
+
+Not exposing the backend directly to the internet (only the frontend port 80 is published in prod)
+
+Rate-limiting POST /api/complaints in Redis
+
+Keeping API keys in environment variables, never logged
+
+Evidence: compose.yaml lines 38–41 (backend networks: [internal, edge]), docker network inspect civicpulse_edge shows frontend + backend only, docker network inspect civicpulse_internal shows backend + postgres + redis only. The frontend cannot resolve postgres — proven by docs/evidence/network-isolation.txt.
+
+### Content — replace Q8 placeholder
+
+```markdown
+## Q8 — The failure
+
+The failure that cost the most time was a **trailing newline in the Groq API key**.
+
+**Symptoms:**
+
+- The backend ran fine in Docker Compose. Real LLM triage worked: `triaged_by: llm:groq`.
+- In the k3d cluster, every complaint returned `triaged_by: rules:fallback`.
+- No errors surfaced to the user. The request returned 201 — the system fell back silently.
+- No fallback log line appeared either, because the fallback handler didn't log at that time.
+
+**What I wrongly believed first:**
+
+- The Kubernetes Secret had the wrong key. I recreated it twice.
+- The cluster couldn't reach `api.groq.com`. I tested DNS from inside the pod — it resolved.
+- The model name was wrong. I listed models via `GET /v1/models` — `openai/gpt-oss-20b` exists.
+- The provider was still set to `simulated`. I checked `kubectl exec -- env | Select-String TRIAGE` — it said `llm`.
+
+**What finally told me the truth:**
+
+I added logging to the fallback handler in `complaint_service.py`:
+
+```python
+except Exception as exc:
+    logger.warning(
+        "Triage provider failed, falling back to rules",
+        extra={
+            "provider": provider.name,
+            "error_class": type(exc).__name__,
+            "error_message": str(exc)[:300],
+        },
+    )
+Then I had to extend JsonFormatter to actually include extra fields in the JSON output — the initial formatter dropped them.
+
+After rebuilding and re-deploying, the log showed:
+
+json
+{
+  "level": "WARNING",
+  "message": "Triage provider failed, falling back to rules",
+  "provider": "llm",
+  "error_class": "LocalProtocolError",
+  "error_message": "Illegal header value b'Bearer gsk_...\\n'"
+}
+The key had a \n at the end. When passed to httpx as an HTTP Authorization header, the newline is illegal. httpx refused to send the request and raised LocalProtocolError.
+
+Why the newline was there: the key was pasted from a file that ended with a newline, and when creating the Kubernetes Secret via --from-literal, the value retained the trailing \n.
+
+The fix — two parts:
+
+Immediate: recreate the Secret with .Trim() on the key value:
+
+powershell
+$key = "gsk_...".Trim()
+kubectl create secret generic civicpulse-secrets -n civicpulse `
+  --from-literal=GROQ_API_KEY=$key `
+  ...
+Permanent: add .strip() to the code in llm.py:
+
+python
+headers = {"Authorization": f"Bearer {settings.groq_api_key.strip()}"}
+url = f"{GEMINI_URL}?key={settings.gemini_api_key.strip()}"
+Now the code defends itself. Even if a future env var has trailing whitespace, the header is well-formed.
+
+What I learned:
+
+Silent fallbacks hide errors. The logging fix wasn't just for debugging — it's a rubric requirement ("One WARNING per triage fallback with the complaint id, the provider and the error class").
+
+The default JSON formatter swallowed extra fields. Custom formatters must merge all non-reserved record attributes.
+
+Kubernetes Secrets preserve whitespace from --from-literal. Always .Trim() untrusted input.
+
+The fallback chain worked exactly as designed. The user still got 201. The system survived a broken provider. That's the whole point of the AI layer's design.
+
