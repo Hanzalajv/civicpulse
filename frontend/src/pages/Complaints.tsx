@@ -13,6 +13,10 @@ import Card from "../components/Card";
 import { PriorityBadge, StatusBadge } from "../components/Badge";
 import LoadingSpinner from "../components/LoadingSpinner";
 
+interface ComplaintsProps {
+  onSelect?: (id: string) => void;
+}
+
 const CATEGORIES: Category[] = [
   "water",
   "electricity",
@@ -26,7 +30,7 @@ const STATUSES: Status[] = ["open", "in_progress", "resolved", "rejected"];
 
 const PAGE_SIZE = 10;
 
-export default function Complaints() {
+export default function Complaints({ onSelect }: ComplaintsProps) {
   const [items, setItems] = useState<Complaint[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -239,7 +243,11 @@ export default function Complaints() {
               </tr>
             ) : (
               items.map((c) => (
-                <tr key={c.id} className="hover:bg-slate-50">
+                <tr
+                  key={c.id}
+                  className="hover:bg-slate-50 cursor-pointer"
+                  onClick={() => onSelect?.(c.id)}
+                >
                   <td className="px-4 py-3 font-mono text-xs text-slate-600">
                     #{c.id.slice(0, 8)}
                   </td>
@@ -254,7 +262,10 @@ export default function Complaints() {
                     <StatusBadge status={c.status} />
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
+                    <div
+                      className="flex items-center gap-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {nextStatus(c.status) && (
                         <Button
                           size="sm"
