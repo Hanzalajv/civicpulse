@@ -9,6 +9,13 @@ from starlette.requests import Request
 
 from app.metrics import REQUEST_COUNT, REQUEST_LATENCY
 
+RESERVED_ATTRS = {
+    "name", "msg", "args", "levelname", "levelno", "pathname", "filename",
+    "module", "exc_info", "exc_text", "stack_info", "lineno", "funcName",
+    "created", "msecs", "relativeCreated", "thread", "threadName",
+    "processName", "process", "message", "asctime", "request_id",
+}
+
 
 class JsonFormatter(logging.Formatter):
     def format(self, record):
@@ -19,9 +26,16 @@ class JsonFormatter(logging.Formatter):
             "message": record.getMessage(),
             "request_id": getattr(record, "request_id", None),
         }
+
+        # Include any extra fields passed via logging's `extra=`
+        for key, value in record.__dict__.items():
+            if key not in RESERVED_ATTRS and not key.startswith("_"):
+                payload[key] = value
+
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
-        return json.dumps(payload)
+
+        return json.dumps(payload, default=str)
 
 
 def configure_logging() -> None:

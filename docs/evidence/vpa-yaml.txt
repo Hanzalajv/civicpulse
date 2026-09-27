@@ -1,0 +1,42 @@
+﻿apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"autoscaling.k8s.io/v1","kind":"VerticalPodAutoscaler","metadata":{"annotations":{},"labels":{"app.kubernetes.io/part-of":"civicpulse"},"name":"backend-vpa","namespace":"civicpulse"},"spec":{"targetRef":{"apiVersion":"apps/v1","kind":"Deployment","name":"backend"},"updatePolicy":{"updateMode":"Off"}}}
+  creationTimestamp: "2026-09-27T11:26:21Z"
+  generation: 1
+  labels:
+    app.kubernetes.io/part-of: civicpulse
+  name: backend-vpa
+  namespace: civicpulse
+  resourceVersion: "6736"
+  uid: ce28a98f-8f26-44ac-820f-8a1a5f09f533
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  updatePolicy:
+    updateMode: "Off"
+status:
+  conditions:
+  - lastTransitionTime: "2026-09-27T11:26:40Z"
+    status: "True"
+    type: RecommendationProvided
+  observedGeneration: 1
+  recommendation:
+    containerRecommendations:
+    - containerName: backend
+      lowerBound:
+        cpu: 25m
+        memory: 250Mi
+      target:
+        cpu: 587m
+        memory: 250Mi
+      uncappedTarget:
+        cpu: 587m
+        memory: 250Mi
+      upperBound:
+        cpu: 86112m
+        memory: "18602343852"

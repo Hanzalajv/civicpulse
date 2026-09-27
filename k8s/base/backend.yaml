@@ -28,6 +28,11 @@ spec:
             - configMapRef:
                 name: civicpulse-config
           env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: civicpulse-secrets
+                  key: DATABASE_URL
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -65,8 +70,8 @@ spec:
                 command: ["sleep", "5"]
           resources:
             requests:
-              cpu: 100m
+              cpu: 300m
               memory: 256Mi
             limits:
-              cpu: 500m
+              cpu: 1000m
               memory: 512Mi

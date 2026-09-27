@@ -6,6 +6,5 @@ metadata:
 data:
   POSTGRES_USER: civicpulse
   POSTGRES_DB: civicpulse
-  TRIAGE_PROVIDER: simulated
+  TRIAGE_PROVIDER: llm
   REDIS_URL: redis://redis:6379/0
-  DATABASE_URL: postgresql+psycopg://civicpulse:CHANGE_ME@postgres:5432/civicpulse

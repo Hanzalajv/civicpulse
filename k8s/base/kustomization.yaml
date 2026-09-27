@@ -6,7 +6,6 @@ namespace: civicpulse
 resources:
   - namespace.yaml
   - configmap.yaml
-  - secret.yaml
   - postgres.yaml
   - redis.yaml
   - backend.yaml
@@ -14,6 +13,7 @@ resources:
   - services.yaml
   - ingress.yaml
   - hpa.yaml
+  - vpa.yaml
   - pdb.yaml
 
 labels:
