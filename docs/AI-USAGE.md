@@ -64,11 +64,56 @@ I will be able to explain every line at viva. If I cannot, I will read it again 
 
 ---
 
-## [Partner Name] (frontend, Docker, K8s, CI/CD)
+## Sawaira-Fareed (frontend, Docker, CI/CD, K8s)
 
-*(Partner fills this section)*
+### Where AI Helped
 
----
+**Scaffolding and boilerplate**
+- Vite + React + TypeScript project scaffold — AI suggested the `--template react-ts` flag and the exact npm commands. I ran them and adjusted as needed.
+- `frontend/src/api/client.ts` initial structure — AI provided the `request<T>()` helper pattern. I added the `X-Cache` header extraction, the 10s `AbortController` timeout, and the `response: Response | null` field on `ApiError`.
+- Test skeletons in `frontend/src/**/*.test.tsx` — AI drafted the `vi.mock` blocks for `api`. I wrote the actual assertions after checking backend responses.
+- Tailwind config, PostCSS config, and `@tailwind` directives in `index.css` — AI provided the initial structure. I chose the color tokens and custom spacing.
+
+**Debugging**
+- PowerShell quoting broke on `curl -d '{"...":"..."}'` for POST requests — AI suggested PowerShell's `Invoke-RestMethod` with `ConvertTo-Json`, which I used throughout.
+- `git diff` showed `tsconfig.app.tsbuildinfo` was being tracked — AI flagged this as a build artifact. I removed it from the index and added it to `.gitignore`.
+- ESLint `react-hooks/set-state-in-effect` on `Dashboard.tsx` — AI explained the cancellation-flag pattern. I applied it to `Dashboard.tsx`, `Complaints.tsx`, `Stats.tsx`, and `ComplaintDetail.tsx`.
+- Frontend container kept restarting with `open() "/run/nginx.pid" failed (13: Permission denied)` — AI identified that nginx as a non-root user cannot write to `/run`. I added `touch /run/nginx.pid && chown nginx:nginx /run/nginx.pid /run`.
+- Healthcheck stuck at "starting" — AI pointed out `localhost` resolves to IPv6 in Alpine, but nginx only listens on IPv4. I switched to `127.0.0.1`.
+- Tests failed when I renamed `Dashboard.tsx` → `Complaints.tsx` — AI suggested role-based and placeholder-based queries instead of exact text. I switched from `getByText("Move to in_progress")` to `getByRole("button", { name: /Mark as in progress/i })`.
+
+**Documentation drafts**
+- `docs/evidence/network-isolation.txt` and `docs/evidence/persistence-after-down-up.txt` — AI provided the section headers. I pasted the actual command output and counts from my terminal.
+- `compose.prod.yaml` initial structure — AI provided the `image: ${IMAGE_TAG}` skeleton with `deploy.resources.limits`. I verified against `docker compose config` and adjusted ports, networks, and volume mounts.
+
+**UI redesign**
+- Complaint Detail page structure — AI provided the two-column layout (main + sidebar), timeline, and AI Triage card. I wired it to `GET /api/complaints/{id}` and added the `onSelect` callback to `Complaints.tsx`.
+- Tailwind sidebar layout — AI provided the `<aside>` with active-state highlighting. I chose colors and spacing.
+- `Button` variants (primary / secondary / ghost / success / danger / lavender) — AI suggested the class map. I picked the specific Tailwind colors for reject / resolve / in-progress actions.
+
+### What I Changed After AI Output
+
+1. **`ApiError` constructor** — AI's first version took only 3 arguments (status, body, message). I added `response: Response | null` so consumers can inspect the raw HTTP response on failures. Had to update 8 call sites in `client.ts`.
+2. **`request()` timeout** — AI had no timeout on the fetch. I added `AbortController` with 10s, and specific error classes: `status: 0` + `"Request timed out"` for aborts, `status: 0` + `"Network error"` for other failures.
+3. **Test expectations on button labels** — AI's tests looked for "Move to in_progress". The UI button now says "Mark as in progress". I updated the regex matcher to `/Mark as in progress/i`.
+4. **Cancellation flag pattern** — AI's original `useEffect` called `load()` directly, which triggered ESLint's `react-hooks/set-state-in-effect` rule. I moved the fetch inside the effect with a `cancelled` boolean and an early return.
+5. **`tsconfig.app.json` types** — AI initially omitted `@testing-library/jest-dom/vitest`. VS Code showed red squiggles on `toBeInTheDocument()`. I added the types entry.
+6. **Frontend Dockerfile user** — AI's first Dockerfile had no `USER nginx`. The container ran as root. I added the user and the writable directory setup, which surfaced the `/run/nginx.pid` issue that I then fixed.
+7. **Prettier noise** — Every time I ran `npm run format`, Prettier reformatted files that weren't part of my PR. AI's suggestion was to `git add` everything. I instead added `git checkout -- <file>` for Prettier-only changes to keep PRs focused.
+8. **Detail page navigation** — AI initially suggested React Router. I chose conditional rendering in `App.tsx` via a `selectedComplaintId` state, since the app is a single-page tab layout without real routing needs.
+9. **`X-Cache` display in Stats** — AI's first version showed "HIT"/"MISS" as plain text. I colored it (amber for MISS, green for HIT) so the cache state is visually obvious during the demo.
+
+### What I Do Not Fully Understand
+
+This is my study list for the viva:
+
+- How Docker's `internal: true` network flag interacts with DNS resolution at the resolver level, and why the frontend gets "bad address" instead of a timeout
+- Why `nginx:1.27-alpine` requires the `/run/nginx.pid` file to exist before the process starts, but the official entrypoint doesn't create it
+- Whether Vite's `/api` proxy configuration is truly equivalent to nginx's `proxy_pass` for the browser's same-origin policy
+- The exact interaction between `tsc -b` (project references) and Vite's build when both read `tsconfig.app.json`
+- How GitHub Actions caches `type=gha` for Docker builds — what's stored, where, and how cache misses are handled
+
+I will be able to explain every line at viva. If I cannot, I will read it again before the viva.
 
 ## Attestation
 
