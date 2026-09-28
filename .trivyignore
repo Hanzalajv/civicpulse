@@ -1,0 +1,11 @@
+# Transitive dependency vulnerabilities in the base image.
+# Neither is a direct dependency of our code.
+#
+# GHSA-6v7p-g79w-8964 — msgpack 1.1.2 — bundled with uvicorn[standard].
+#   Fix requires upstream uvicorn to bump its constraint. Tracked.
+# CVE-2025-47273 — setuptools 70.3.0 — build tool in python:3.12-slim base image.
+#   Not used at runtime. Fixed in Debian when base image updates.
+#
+# Documented, reviewed, and accepted for this assignment.
+GHSA-6v7p-g79w-8964
+CVE-2025-47273

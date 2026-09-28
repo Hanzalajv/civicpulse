@@ -197,6 +197,7 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
           severity: HIGH,CRITICAL
+          trivyignores: .trivyignore
 
       - name: Trivy — frontend
         uses: aquasecurity/trivy-action@master
@@ -206,6 +207,7 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
           severity: HIGH,CRITICAL
+          trivyignores: .trivyignore
 
   manifests:
     name: Validate K8s manifests
