@@ -185,13 +185,31 @@ jobs:
       - name: Apply prod overlay with SHA tag
         env:
           IMAGE_TAG: ${{ github.sha }}
+        working-directory: k8s/overlays/prod
         run: |
-          kustomize build k8s/overlays/prod | kubectl apply -f -
+          kustomize edit set image backend=ghcr.io/hanzalajv/civicpulse-backend:$IMAGE_TAG
+          kustomize edit set image frontend=ghcr.io/hanzalajv/civicpulse-frontend:$IMAGE_TAG
+          kustomize build . | kubectl apply -f -
 
-      - name: Wait for rollout
+            - name: Wait for rollout
         run: |
-          kubectl rollout status deployment/backend -n civicpulse --timeout=180s
-          kubectl rollout status deployment/frontend -n civicpulse --timeout=180s
+          kubectl rollout status deployment/backend -n civicpulse --timeout=300s
+          kubectl rollout status deployment/frontend -n civicpulse --timeout=300s
+
+      - name: Debug pods on failure
+        if: failure()
+        run: |
+          echo "=== Pods ==="
+          kubectl get pods -n civicpulse -o wide
+          echo "=== Backend describe ==="
+          kubectl describe pods -n civicpulse -l app=backend || true
+          echo "=== Backend logs ==="
+          kubectl logs -n civicpulse -l app=backend --tail=100 --all-containers=true || true
+          echo "=== Events ==="
+          kubectl get events -n civicpulse --sort-by='.lastTimestamp' | tail -40
+      - name: Wait for Postgres to be ready
+        run: |
+          kubectl wait --for=condition=ready pod -l app=postgres -n civicpulse --timeout=180s
 
       - name: Smoke test through Ingress
         run: |

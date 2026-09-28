@@ -16,6 +16,7 @@ spec:
       containers:
         - name: frontend
           image: frontend
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
           startupProbe:
