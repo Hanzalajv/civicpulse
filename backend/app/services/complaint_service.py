@@ -1,3 +1,4 @@
+import logging
 import time
 
 from sqlalchemy.orm import Session
@@ -10,6 +11,8 @@ from app.providers.triage.rules import RuleBasedTriage
 from app.repositories.complaint_repo import ComplaintRepository
 from app.services.stats_service import invalidate_stats
 from app.services.triage_cache import get_cached_triage, set_cached_triage
+
+logger = logging.getLogger(__name__)
 
 
 def _resolve_provider_name(provider) -> str:
@@ -34,7 +37,16 @@ def create_complaint(db: Session, data: dict) -> Complaint:
         try:
             result = provider.triage(text, location)
             triaged_by = _resolve_provider_name(provider)
-        except Exception:
+        except Exception as exc:
+            logger.warning(
+                "Triage provider failed, falling back to rules",
+                extra={
+                    "provider": provider.name,
+                    "error_class": type(exc).__name__,
+                    "error_message": str(exc)[:300],
+                    "location": location,
+                },
+            )
             result = RuleBasedTriage().triage(text, location)
             triaged_by = "rules:fallback"
             TRIAGE_FALLBACK_COUNT.inc()

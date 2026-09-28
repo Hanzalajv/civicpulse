@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: civicpulse
+
+resources:
+  - ../../base
+
+images:
+  - name: backend
+    newName: ghcr.io/hanzalajv/civicpulse-backend
+    newTag: ${IMAGE_TAG}
+  - name: frontend
+    newName: ghcr.io/hanzalajv/civicpulse-frontend
+    newTag: ${IMAGE_TAG}
+
+replicas:
+  - name: backend
+    count: 2
+  - name: frontend
+    count: 2

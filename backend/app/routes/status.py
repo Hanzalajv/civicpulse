@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models.enums import Status
-from app.services.complaint_service import update_status
 from app.routes.complaints import _to_response
+from app.services.complaint_service import update_status
 
 router = APIRouter()
 

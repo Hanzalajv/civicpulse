@@ -1,0 +1,23 @@
+﻿Network Isolation Proof
+
+Purpose:
+Demonstrate that the frontend container cannot reach PostgreSQL.
+
+Docker networks:
+- edge: frontend <-> backend
+- internal: backend <-> postgres <-> redis (internal: true)
+
+The frontend joins edge only. Postgres joins internal only. The two networks are not connected.
+
+Command:
+docker compose -f compose.yaml exec frontend ping -c 1 postgres
+
+Output:
+ping: bad address 'postgres'
+
+Interpretation:
+The frontend container has no DNS record for postgres because it is not on the same Docker network. The command fails as expected.
+
+Captured:
+Date: 2026-09-27
+Environment: Windows 11, Docker Desktop 29.7.2

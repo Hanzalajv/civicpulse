@@ -17,11 +17,7 @@ class ComplaintRepository:
         return complaint
 
     def get_by_id(self, complaint_id: str) -> Complaint | None:
-        return (
-            self.db.query(Complaint)
-            .filter(Complaint.id == complaint_id)
-            .first()
-        )
+        return self.db.query(Complaint).filter(Complaint.id == complaint_id).first()
 
     def list(
         self,

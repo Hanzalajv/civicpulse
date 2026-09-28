@@ -1,0 +1,6 @@
+﻿Persistence check — 62 rows before and after down/up
+ count 
+-------
+    77
+(1 row)
+

@@ -5,10 +5,12 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     DateTime,
-    Enum as SQLEnum,
     Index,
     Integer,
     String,
+)
+from sqlalchemy import (
+    Enum as SQLEnum,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declarative_base
@@ -32,9 +34,7 @@ class Complaint(Base):
     triaged_by = Column(String(50), nullable=False)
     triage_latency_ms = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
-    )
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     __table_args__ = (
         CheckConstraint(
