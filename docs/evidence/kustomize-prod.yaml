@@ -1,0 +1,405 @@
+﻿apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/part-of: civicpulse
+  name: civicpulse
+---
+apiVersion: v1
+data:
+  POSTGRES_DB: civicpulse
+  POSTGRES_USER: civicpulse
+  REDIS_URL: redis://redis:6379/0
+  TRIAGE_PROVIDER: llm
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/part-of: civicpulse
+  name: civicpulse-config
+  namespace: civicpulse
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/part-of: civicpulse
+  name: backend
+  namespace: civicpulse
+spec:
+  ports:
+  - port: 8000
+    targetPort: 8000
+  selector:
+    app: backend
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/part-of: civicpulse
+  name: frontend
+  namespace: civicpulse
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: frontend
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/part-of: civicpulse
+  name: postgres
+  namespace: civicpulse
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: postgres
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/part-of: civicpulse
+  name: redis
+  namespace: civicpulse
+spec:
+  ports:
+  - port: 6379
+    targetPort: 6379
+  selector:
+    app: redis
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app.kubernetes.io/part-of: civicpulse
+  name: redis-pvc
+  namespace: civicpulse
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 512Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/part-of: civicpulse
+  name: backend
+  namespace: civicpulse
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: DATABASE_URL
+              name: civicpulse-secrets
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRES_PASSWORD
+              name: civicpulse-secrets
+        - name: GROQ_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: GROQ_API_KEY
+              name: civicpulse-secrets
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: GEMINI_API_KEY
+              name: civicpulse-secrets
+        envFrom:
+        - configMapRef:
+            name: civicpulse-config
+        image: ghcr.io/hanzalajv/civicpulse-backend:${IMAGE_TAG}
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - sleep
+              - "5"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          periodSeconds: 10
+        name: backend
+        ports:
+        - containerPort: 8000
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          periodSeconds: 5
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+          requests:
+            cpu: 300m
+            memory: 256Mi
+        startupProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /health
+            port: 8000
+          periodSeconds: 2
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/part-of: civicpulse
+  name: frontend
+  namespace: civicpulse
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - image: ghcr.io/hanzalajv/civicpulse-frontend:${IMAGE_TAG}
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          periodSeconds: 10
+        name: frontend
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          periodSeconds: 5
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 128Mi
+        startupProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /
+            port: 80
+          periodSeconds: 2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/part-of: civicpulse
+  name: redis
+  namespace: civicpulse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - args:
+        - --appendonly
+        - "yes"
+        image: redis:7
+        name: redis
+        ports:
+        - containerPort: 6379
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 128Mi
+        volumeMounts:
+        - mountPath: /data
+          name: redisdata
+      volumes:
+      - name: redisdata
+        persistentVolumeClaim:
+          claimName: redis-pvc
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app.kubernetes.io/part-of: civicpulse
+  name: postgres
+  namespace: civicpulse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  serviceName: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - env:
+        - name: POSTGRES_USER
+          valueFrom:
+            configMapKeyRef:
+              key: POSTGRES_USER
+              name: civicpulse-config
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              key: POSTGRES_DB
+              name: civicpulse-config
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRES_PASSWORD
+              name: civicpulse-secrets
+        image: postgres:16
+        name: postgres
+        ports:
+        - containerPort: 5432
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: pgdata
+  volumeClaimTemplates:
+  - metadata:
+      name: pgdata
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app.kubernetes.io/part-of: civicpulse
+  name: backend-pdb
+  namespace: civicpulse
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: backend
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  labels:
+    app.kubernetes.io/part-of: civicpulse
+  name: backend-vpa
+  namespace: civicpulse
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  updatePolicy:
+    updateMode: "Off"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app.kubernetes.io/part-of: civicpulse
+  name: backend
+  namespace: civicpulse
+spec:
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+    scaleUp:
+      stabilizationWindowSeconds: 0
+  maxReplicas: 10
+  metrics:
+  - resource:
+      name: cpu
+      target:
+        averageUtilization: 60
+        type: Utilization
+    type: Resource
+  minReplicas: 2
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  labels:
+    app.kubernetes.io/part-of: civicpulse
+  name: civicpulse
+  namespace: civicpulse
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: civicpulse.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: backend
+            port:
+              number: 8000
+        path: /api
+        pathType: Prefix
+      - backend:
+          service:
+            name: frontend
+            port:
+              number: 80
+        path: /
+        pathType: Prefix

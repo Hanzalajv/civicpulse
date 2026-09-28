@@ -66,6 +66,14 @@ jobs:
         working-directory: backend
         run: alembic upgrade head
 
+      - name: Backend lint
+        working-directory: backend
+        run: ruff check app/
+
+      - name: Backend type-check
+        working-directory: backend
+        run: mypy app/
+
       - name: Backend tests
         working-directory: backend
         run: pytest --cov=app --cov-report=term-missing --cov-fail-under=65
@@ -80,6 +88,14 @@ jobs:
       - name: Frontend deps
         working-directory: frontend
         run: npm ci
+
+      - name: Frontend lint
+        working-directory: frontend
+        run: npx eslint .
+
+      - name: Frontend type-check
+        working-directory: frontend
+        run: npx tsc --noEmit
 
       - name: Frontend tests
         working-directory: frontend
@@ -171,6 +187,19 @@ jobs:
 
       - name: Create k3d cluster
         run: k3d cluster create civicpulse-ci -p "8080:80@loadbalancer" --wait
+              - name: Patch kubeconfig for localhost access
+        run: |
+          sed -i 's|host.docker.internal|127.0.0.1|g' ~/.kube/config
+          kubectl config view --minify | grep server
+
+      - name: Install metrics-server
+        run: |
+          kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+          sleep 15
+          kubectl patch deployment metrics-server -n kube-system --type=json \
+            -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]' || true
+          sleep 30
+          kubectl wait --for=condition=available deployment/metrics-server -n kube-system --timeout=120s || true
 
       - name: Log in to GHCR for image pulls
         run: |
@@ -197,37 +226,61 @@ jobs:
           kustomize edit set image frontend=ghcr.io/hanzalajv/civicpulse-frontend:$IMAGE_TAG
           kustomize build . | kubectl apply -f -
 
-      - name: Wait for Postgres to be ready
+      - name: Verify Secret exists
+        run: kubectl get secret civicpulse-secrets -n civicpulse
+
+      - name: Verify ConfigMap exists
+        run: kubectl get configmap civicpulse-config -n civicpulse
+
+      - name: Wait for Redis ready
+        run: kubectl wait --for=condition=ready pod -l app=redis -n civicpulse --timeout=120s
+
+      - name: Wait for Postgres ready
+        run: kubectl wait --for=condition=ready pod -l app=postgres -n civicpulse --timeout=180s
+
+      - name: Wait for backend pod to be running
         run: |
-          kubectl wait --for=condition=ready pod -l app=postgres -n civicpulse --timeout=180s
+          for i in $(seq 1 40); do
+            ready=$(kubectl get deploy/backend -n civicpulse -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+            if [ "$ready" = "2" ] || [ "$ready" = "1" ]; then
+              echo "Backend has $ready ready replicas"
+              break
+            fi
+            echo "Attempt $i: backend ready replicas = $ready"
+            sleep 5
+          done
 
       - name: Run migrations
-        run: |
-          kubectl exec -n civicpulse deploy/backend -- alembic upgrade head
+        run: kubectl exec -n civicpulse deploy/backend -- alembic upgrade head
+
+      - name: Run seed
+        run: kubectl exec -n civicpulse deploy/backend -- python -m scripts.seed || true
 
       - name: Wait for backend rollout
-        run: |
-          kubectl rollout status deployment/backend -n civicpulse --timeout=300s
-        continue-on-error: false
+        run: kubectl rollout status deployment/backend -n civicpulse --timeout=300s
 
       - name: Wait for frontend rollout
-        run: |
-          kubectl rollout status deployment/frontend -n civicpulse --timeout=300s
-        continue-on-error: false
+        run: kubectl rollout status deployment/frontend -n civicpulse --timeout=300s
 
       - name: Debug pods on failure
         if: failure()
         run: |
           echo "=== Pods ==="
-          kubectl get pods -n civicpulse -o wide
+          kubectl get pods -n civicpulse -o wide || true
+          echo "=== Secrets ==="
+          kubectl get secrets -n civicpulse || true
+          echo "=== ConfigMaps ==="
+          kubectl get configmaps -n civicpulse || true
           echo "=== Backend describe ==="
           kubectl describe pods -n civicpulse -l app=backend || true
           echo "=== Backend logs ==="
           kubectl logs -n civicpulse -l app=backend --tail=100 --all-containers=true || true
-          echo "=== Ready endpoint ==="
-          kubectl exec -n civicpulse deploy/backend -- curl -s http://localhost:8000/ready || true
+          echo "=== Postgres logs ==="
+          kubectl logs -n civicpulse -l app=postgres --tail=100 --all-containers=true || true
+          echo "=== Redis logs ==="
+          kubectl logs -n civicpulse -l app=redis --tail=50 --all-containers=true || true
           echo "=== Events ==="
-          kubectl get events -n civicpulse --sort-by='.lastTimestamp' | tail -40
+          kubectl get events -n civicpulse --sort-by='.lastTimestamp' | tail -50
 
       - name: Smoke test through Ingress
         run: |
