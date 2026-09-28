@@ -8,7 +8,9 @@ from app.models.enums import Category, Priority
 from app.models.schemas import TriageResult
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+GEMINI_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+)
 
 SYSTEM_PROMPT = """You are a municipal complaint triage system.
 Classify the complaint into exactly one category from: water, electricity, sanitation, roads, streetlights, other.
@@ -73,7 +75,11 @@ class LLMTriage:
         url = f"{GEMINI_URL}?key={settings.gemini_api_key}"
         payload = {
             "contents": [
-                {"parts": [{"text": SYSTEM_PROMPT + "\n\n" + self._build_user_prompt(text, location)}]}
+                {
+                    "parts": [
+                        {"text": SYSTEM_PROMPT + "\n\n" + self._build_user_prompt(text, location)}
+                    ]
+                }
             ],
             "generationConfig": {"responseMimeType": "application/json", "temperature": 0.1},
         }

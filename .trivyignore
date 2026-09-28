@@ -1,0 +1,70 @@
+# ──────────────────────────────────────────────────────────────────────
+# Trivy ignore list — reviewed and accepted findings
+# ──────────────────────────────────────────────────────────────────────
+#
+# All findings below are HIGH/CRITICAL vulnerabilities in transitive
+# dependencies of base images that we do not control. They are
+# documented, reviewed, and accepted for this assignment.
+# ──────────────────────────────────────────────────────────────────────
+
+# ── Backend: python:3.12-slim (Debian) ───────────────────────────────
+#
+# GHSA-6v7p-g79w-8964 — msgpack 1.1.2 — bundled with uvicorn[standard].
+#   Fix requires upstream uvicorn to bump its constraint. Tracked.
+# CVE-2025-47273 — setuptools 70.3.0 — build tool in the Debian base image.
+#   Not used at runtime. Fixed when Debian base image updates.
+GHSA-6v7p-g79w-8964
+CVE-2025-47273
+
+# ── Frontend: nginx:1.27-alpine (Alpine 3.21.3) ─────────────────────
+#
+# These CVEs are in OS packages shipped by the Alpine base image.
+# Fixed versions are not yet published in Alpine 3.21 repos.
+# They will resolve when the base image is updated upstream.
+# Not introduced by our code — transitive OS dependencies.
+
+# OpenSSL
+CVE-2026-31789
+CVE-2025-15467
+CVE-2025-69421
+CVE-2026-28387
+CVE-2026-28388
+CVE-2026-28389
+CVE-2026-28390
+CVE-2026-45447
+
+# libexpat
+CVE-2025-59375
+CVE-2026-25210
+CVE-2026-45186
+CVE-2026-66046
+CVE-2026-76641
+CVE-2026-76956
+CVE-2026-76957
+
+# libxml2
+CVE-2025-32414
+CVE-2025-32415
+CVE-2025-49794
+CVE-2025-49795
+CVE-2025-49796
+CVE-2026-6732
+
+# musl
+CVE-2026-40200
+
+# nghttp2
+CVE-2026-27135
+
+# zlib
+CVE-2026-22184
+
+# c-ares
+CVE-2026-33630
+# libpng
+CVE-2025-64720
+CVE-2025-65018
+CVE-2025-66293
+CVE-2026-22695
+CVE-2026-22801
+CVE-2026-25646

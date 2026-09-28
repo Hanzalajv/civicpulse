@@ -1,5 +1,5 @@
-from app.models.enums import Category, Priority
 from app.models.schemas import TriageResult
+
 from .rules import RuleBasedTriage
 
 

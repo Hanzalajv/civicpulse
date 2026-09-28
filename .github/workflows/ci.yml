@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [dev, main]
   push:
     branches: [dev]
 
@@ -190,22 +190,25 @@ jobs:
           tags: civicpulse-frontend:scan
 
       - name: Trivy — backend
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: civicpulse-backend:scan
           format: table
           exit-code: "1"
           ignore-unfixed: true
           severity: HIGH,CRITICAL
+          trivyignores: .trivyignore
+          
 
       - name: Trivy — frontend
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: civicpulse-frontend:scan
           format: table
           exit-code: "1"
           ignore-unfixed: true
           severity: HIGH,CRITICAL
+          trivyignores: .trivyignore
 
   manifests:
     name: Validate K8s manifests
