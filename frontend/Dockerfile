@@ -9,7 +9,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: serve with nginx (non-root)
-FROM nginx:1.27-alpine3.22 AS runtime
+FROM nginx:1.27-alpine AS runtime
 
 # Remove default config, prepare writable dirs for non-root user
 RUN rm -f /etc/nginx/conf.d/default.conf \
