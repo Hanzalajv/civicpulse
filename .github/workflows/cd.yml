@@ -187,7 +187,7 @@ jobs:
 
       - name: Create k3d cluster
         run: k3d cluster create civicpulse-ci -p "8080:80@loadbalancer" --wait
-              - name: Patch kubeconfig for localhost access
+      - name: Patch kubeconfig for localhost access
         run: |
           sed -i 's|host.docker.internal|127.0.0.1|g' ~/.kube/config
           kubectl config view --minify | grep server
