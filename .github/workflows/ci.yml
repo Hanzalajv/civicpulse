@@ -190,7 +190,7 @@ jobs:
           tags: civicpulse-frontend:scan
 
       - name: Trivy — backend
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@V0.30.0
         with:
           image-ref: civicpulse-backend:scan
           format: table
@@ -201,7 +201,7 @@ jobs:
           
 
       - name: Trivy — frontend
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@v0.30.0
         with:
           image-ref: civicpulse-frontend:scan
           format: table
