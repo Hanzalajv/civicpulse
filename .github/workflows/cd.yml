@@ -191,7 +191,7 @@ jobs:
           kustomize edit set image frontend=ghcr.io/hanzalajv/civicpulse-frontend:$IMAGE_TAG
           kustomize build . | kubectl apply -f -
 
-            - name: Wait for rollout
+      - name: Wait for rollout
         run: |
           kubectl rollout status deployment/backend -n civicpulse --timeout=300s
           kubectl rollout status deployment/frontend -n civicpulse --timeout=300s
