@@ -11,8 +11,8 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  BACKEND_IMAGE: ${{ github.repository }}-backend
-  FRONTEND_IMAGE: ${{ github.repository }}-frontend
+    BACKEND_IMAGE: hanzalajv/civicpulse-backend
+  FRONTEND_IMAGE: hanzalajv/civicpulse-frontend
 
 jobs:
   release:
