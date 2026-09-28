@@ -88,9 +88,7 @@ def update_status(db: Session, complaint_id: str, new_status: Status) -> Complai
     if complaint is None:
         raise ValueError("not_found")
     if not can_transition(complaint.status, new_status):
-        raise ValueError(
-            f"invalid_transition:{complaint.status.value}->{new_status.value}"
-        )
+        raise ValueError(f"invalid_transition:{complaint.status.value}->{new_status.value}")
 
     updated = repo.update_status(complaint_id, new_status)
     invalidate_stats()

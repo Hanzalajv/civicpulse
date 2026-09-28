@@ -21,6 +21,31 @@ dev = ["pytest", "pytest-cov", "ruff", "mypy", "pytest-asyncio", "fakeredis"]
 
 [tool.ruff]
 line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+]
+
+ignore = [
+    "E501",   # line too long — handled by formatter
+    "B008",   # FastAPI Depends() in defaults is idiomatic
+    "BLE001", # catching Exception is intentional fallback behavior
+    "RUF012", # class-level mutable defaults are intentional dicts/lists
+    "EXE002", # executable file without shebang — a Windows artifact
+    "UP042",  # (str, Enum) is fine; StrEnum breaks SQLAlchemy enum mapping
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # allow re-exports
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
 
 [tool.mypy]
 strict = true
