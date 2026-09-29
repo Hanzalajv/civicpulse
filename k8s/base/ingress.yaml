@@ -4,10 +4,9 @@ metadata:
   name: civicpulse
   namespace: civicpulse
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   rules:
-    - host: civicpulse.local
-      http:
+    - http:
         paths:
           - path: /api
             pathType: Prefix
