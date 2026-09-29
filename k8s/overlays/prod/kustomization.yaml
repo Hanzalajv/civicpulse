@@ -9,10 +9,10 @@ resources:
 images:
   - name: backend
     newName: ghcr.io/hanzalajv/civicpulse-backend
-    newTag: ${IMAGE_TAG}
+    newTag: dev
   - name: frontend
     newName: ghcr.io/hanzalajv/civicpulse-frontend
-    newTag: ${IMAGE_TAG}
+    newTag: dev
 
 replicas:
   - name: backend
